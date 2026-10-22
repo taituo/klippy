@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Klippy fixture</title>
+  <style>
+    body { font: 15px system-ui, sans-serif; margin: 20px; }
+    .hidden-css { display: none; }
+    .invisible { visibility: hidden; }
+    #cover-zone { position: relative; margin-top: 20px; height: 60px; }
+    #covered { position: absolute; left: 0; top: 10px; }
+    #banner { position: absolute; left: 0; top: 0; width: 320px; height: 60px; background: #ffd; border: 1px solid #cc9; }
+    .tall { height: 1400px; }
+  </style>
+</head>
+<body>
+  <h1>Shop</h1>
+  <nav><a href="page2.html">Second page</a> <a href="https://example.org/docs">External docs</a></nav>
+
+  <section>
+    <h2>Controls</h2>
+    <button id="save">Save</button>
+    <button id="toggle" onclick="document.getElementById('save').disabled = !document.getElementById('save').disabled">Toggle save</button>
+    <button id="icon" aria-label="Close panel"><svg width="10" height="10"><path d="M0 0L10 10"/></svg></button>
+    <button id="icon2"><svg width="10" height="10" aria-label="Settings"><path d="M0 0L10 10"/></svg></button>
+    <label for="name">Your name</label> <input id="name" type="text" value="Ada">
+    <input id="email" type="email" placeholder="Email address">
+    <label>Remember me <input id="remember" type="checkbox"></label>
+    <select id="size" aria-label="Size"><option>Small</option><option selected>Medium</option></select>
+    <textarea id="notes" aria-label="Notes"></textarea>
+    <span class="hidden-css"><button>Hidden by CSS</button></span>
+    <div aria-hidden="true"><button>Hidden by aria</button></div>
+    <button class="invisible">Invisible button</button>
+    <p>Plain paragraph text</p>
+  </section>
+
+  <section>
+    <h2>Search</h2>
+    <form id="search" method="get" action="#" role="search" onsubmit="event.preventDefault(); runSearch()">
+      <input id="q" type="search" name="q" aria-label="Search products">
+      <button type="submit">Search</button>
+    </form>
+    <ul id="results"><li id="empty">No results</li></ul>
+  </section>
+
+  <section>
+    <h2>Account</h2>
+    <form id="login" method="post" action="#" onsubmit="event.preventDefault()">
+      <input id="user" name="user" aria-label="Username" value="ada">
+      <input id="pw" name="password" type="password" aria-label="Password" value="hunter2">
+      <button type="submit">Sign in</button>
+    </form>
+    <button id="order" onclick="document.getElementById('status').textContent = 'Order placed'">Place order</button>
+    <button id="delete" onclick="document.getElementById('status').textContent = 'Account deleted'">Delete account</button>
+    <button id="laheta">Lähetä viesti</button>
+    <div id="status" role="status"></div>
+  </section>
+
+  <section>
+    <h2>Dynamic</h2>
+    <button id="open-dialog" onclick="openDialog()">Open dialog</button>
+    <div id="like-wrap"><button id="like" aria-pressed="false" onclick="rerenderLike()">Like</button></div>
+    <button id="noop">Does nothing</button>
+    <my-widget></my-widget>
+  </section>
+
+  <div id="cover-zone">
+    <button id="covered">Covered button</button>
+    <div id="banner">Cookie banner <button id="accept" onclick="document.getElementById('banner').remove()">Accept cookies</button></div>
+  </div>
+
+  <div class="tall"></div>
+  <button id="far">Far down button</button>
+
+  <script>
+    function runSearch() {
+      const q = document.getElementById('q').value;
+      const ul = document.getElementById('results');
+      ul.innerHTML = '';
+      for (const n of [1, 2, 3]) {
+        const li = document.createElement('li');
+        li.textContent = q + ' result ' + n;
+        ul.appendChild(li);
+      }
+    }
+    function openDialog() {
+      const d = document.createElement('div');
+      d.setAttribute('role', 'dialog');
+      d.setAttribute('aria-label', 'Confirm action');
+      d.innerHTML = '<p>Are you sure?</p><button>OK</button>';
+      document.body.appendChild(d);
+    }
+    function rerenderLike() {
+      // Replace the node with an identical one (like a framework re-render), toggling pressed.
+      const old = document.getElementById('like');
+      const pressed = old.getAttribute('aria-pressed') === 'true';
+      const b = document.createElement('button');
+      b.id = 'like';
+      b.textContent = 'Like';
+      b.setAttribute('aria-pressed', String(!pressed));
+      b.onclick = rerenderLike;
+      old.replaceWith(b);
+    }
+    customElements.define('my-widget', class extends HTMLElement {
+      constructor() {
+        super();
+        this.attachShadow({ mode: 'open' }).innerHTML = '<button>Shadow button</button>';
+      }
+    });
+  </script>
+</body>
+</html>

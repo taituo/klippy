@@ -6,7 +6,7 @@ visible cursor. The browser side is a thin "body" (eyes, hands, face, voice);
 the "brain" is a pluggable agent harness with durable state that can run
 locally or in the cloud.
 
-Status: idea / pre-prototype.
+Status: M0 implemented — see [ARCHITECTURE.md](ARCHITECTURE.md) for what exists today.
 
 ---
 
@@ -327,26 +327,32 @@ for long tasks.
 ## 12. Voice
 
 - **Push-to-talk global hotkey in the runtime**, not mic capture in the
-  extension (content-script mic means per-site permission prompts).
-- **STT**: whisper.cpp with Metal (handles Finnish too). In-browser Whisper is
-  an alternative.
-- **TTS**: Kokoro or Piper for low-latency replies; VoxCPM2 if it's fast enough
-  live.
-- Barge-in: pressing the hotkey while Klippy speaks stops TTS.
+  extension (content-script mic means per-site permission prompts). In the
+  pure-extension mode the mic lives in an offscreen document.
+- **STT, Finnish**: Whisper large-v3 or the Finnish-NLP fine-tune (whisper.cpp /
+  MLX). Whisper is clearly more accurate in Finnish than Parakeet v3.
+- **STT, English**: Parakeet-TDT-0.6B-v3 (MLX) — much faster, slightly better WER.
+- **TTS, Finnish**: Piper `fi_FI-harri` (check the voice's license); VoxCPM2 for
+  quality if it is fast enough live. **Kokoro has no Finnish** — English only.
+- **TTS, English**: Kokoro.
+- Barge-in: pressing the hotkey while Klippy speaks stops TTS (trivial with PTT).
+- Expected end-to-end latency locally ~1.5–3 s (estimate, to be measured).
+- Fast intent routing with a classifier (see ARCHITECTURE.md) so simple commands
+  (`scroll`, `back`, `click 12`, `stop`, `confirm`) skip the big LLM.
 - Cloud mode can optionally use a realtime voice model.
 
 ---
 
 ## 13. Local models
 
-- Ollama as the default local backend (OpenAI-compatible API on localhost).
+- Ollama / MLX as the default local backend (OpenAI-compatible API), any
+  OpenAI-compatible endpoint or BYOK cloud model works.
 - Text page map instead of screenshots — small models handle text much better.
-- Realistic expectations: short commands ("open my GitHub notifications",
-  "fill this with X") work well locally; long multi-site chores fail more
-  often. Design around short voice commands + confirmation; route long tasks
-  to a stronger model when allowed.
-- Starting point to test: `qwen3-vl:8b` (recommended in current browser-use +
-  Ollama guides); larger models if memory allows.
+- Candidates on an M5 Pro class Mac: Qwen3.6-35B-A3B (fast MoE), Qwen3.8-27B,
+  Gemma 4 27B. No reliable public browser-agent benchmark for local models
+  exists yet → build our own 20–50 task eval (with vs. without the diff).
+- Realistic expectations: short 1–5 step commands on known pages work locally;
+  long open-ended chores need a cloud model. Hybrid by default.
 
 ---
 
@@ -369,52 +375,76 @@ for long tasks.
 
 ## 15. Roadmap
 
-**M0 — skeleton**
-- MV3 extension with overlay shadow root, cursor + highlight layers
-- runtime with websocket to extension
-- hands via agent-browser attached to real Chrome
+Revised after the October 2026 research: the page map, diff, MCP and safety gates
+are the core value, so they come before voice.
 
-**M1 — talk to it**
-- push-to-talk → whisper.cpp → Ollama → Piper/Kokoro
-- tools: `snapshot`, `point`, `highlight`, `click`, `type`
-
-**M2 — eyes done right**
-- own page map + `read_html`
-- deterministic diff engine + fixture tests
-- switch hands to Playwright over CDP for full control
-
-**M3 — protocol + local brain**
-- Klippy Protocol (WebSocket JSON-RPC) + MCP server
-- local durable loop with SQLite journal, `confirm()` gates
-
-**M4 — notes, trail, Cards, Tasks**
-- anchored notes, trail layer
-- Cards (saved chainable skills), Tasks (workspaces with own context)
-
-**M5 — workers**
-- local worker pool (Lightpanda / headless Chrome / shadow window)
-- worker tray, take over, results as notes/highlights
-
-**M6 — Klippy Cloud**
-- per-user durable agent (Cloudflare Agents or Restate/Temporal)
-- schedules, cloud workers, sync
-
-**M7 — the character**
-- original character art, states, lip-sync
+| Phase | Content | Status |
+|---|---|---|
+| **M0** | Extension, closed-shadow overlay (ghost cursor, highlights, bubble, simple sprite), page map, deterministic diff, `read_html`, `chrome.debugger` hands + synthetic fallback, deterministic GatePolicy with on-page confirmation, `klippy-mcp` bridge, tests | **done** |
+| M1 | Eval set (20–50 tasks, FI/EN, local vs cloud, diff vs no diff), `ClassifierLayer` (Clef-flash local) for page state + success check, audit log, iframes | next |
+| M2 | Per-task origin scope + taint tracking, native messaging, BYOK in the extension, WebMCP tools behind the same gates, `BodyDriver` abstraction + Playwright driver | |
+| M3 | Voice (PTT; Whisper/Parakeet; Piper/Kokoro) + local durable loop (SQLite journal, approvals, schedules) | |
+| M4 | Anchored notes (W3C selectors), trail, Cards, Tasks | |
+| M5 | VPS headless mode (voice + screenshots + live view/take-over), cookie-less workers (headless Chrome; Lightpanda for read-only), worker badges | |
+| M6 | Klippy Cloud (Cloudflare Agents + Browser Run + Clef), Teams pilot | only if M2–M4 get users |
+| M7 | Full character animation and persona | |
 
 ---
 
 ## 16. Open questions
 
-- Runtime language: TypeScript (same as extension + Playwright) vs Rust?
-- Keep agent-browser long-term or only for the prototype?
-- Page map format: share agent-browser's `@eN` a11y snapshot format or own ids?
-- iframes and shadow DOM in the page map and diff.
+- Bridge language: M0 bridge is TypeScript (single file, no deps). Port to Rust
+  later (native messaging host + MCP) or keep TS?
+- agent-browser: not used in M0 (own page map + `chrome.debugger`); keep it as a
+  dev/worker tool and as a benchmark for the eyes.
+- Page map format: own ids for now; compare token cost with agent-browser's `@eN`.
+- iframes (M1) and closed shadow roots (not reachable from a content script).
 - Multi-tab: does the character follow you across tabs?
 - Can the cloud brain drive the real Chrome when the runtime is offline? (No —
   then it only runs cloud workers and queues the rest.)
-- Finnish + English voice from the start?
-- Name/character design.
+- Finnish + English voice from the start? (Plan: yes — Whisper/Piper for FI.)
+- Name/character design (M0 has a simple original sprite).
+- License (open core: MIT/Apache-2.0 for the body? something else?).
+
+---
+
+## 17. Research notes (October 2026)
+
+Two deep-research passes (in the conversation that started this repo) changed a few
+assumptions:
+
+- **Extension, not a browser.** OpenAI shut down ChatGPT Atlas on 9 Aug 2026
+  (folded into ChatGPT Work + a Chrome extension); Microsoft retired Edge Copilot
+  Mode in May 2026; Comet and Opera Neon became free. The fight is inside Chrome
+  (Gemini auto browse, Claude in Chrome).
+- **Closest open-source neighbour: alibaba/page-agent** (MIT, in-page agent,
+  text DOM, overlay, BYO LLM, MCP). Nobody combines an on-page character + ghost
+  cursor + local voice + BYO brain.
+- **Remote debugging:** Chrome 136+ blocks `--remote-debugging-port` on the
+  default profile; Chrome 144+ has a per-session toggle at
+  `chrome://inspect/#remote-debugging`. Klippy uses `chrome.debugger` instead and
+  never asks users to open port 9222. Edge 154+ policies can block
+  `chrome.debugger.attach()` → synthetic fallback (implemented, labelled untrusted).
+- **Security:** BioShocking (LayerX, June 2026) tricked six agentic browsers into
+  leaking credentials; prompt injection detectors either over-flag or miss new
+  attacks. Hence: deterministic gates in the body, classifiers only as a stricter
+  second opinion, origin scope + taint tracking next.
+- **Classifiers:** System One decision models (Jev; Cloudflare Clef / Clef-flash,
+  open weights; Perplexity Decider; Microsoft Decision-1) share one API format →
+  one client. Good for page state, intent routing and success checks; not for
+  deciding gates alone (Jev was broken by prompt injection in every configuration
+  in Check Point's test).
+- **Browsers:** Chromium family is tier 1; Firefox via WebDriver BiDi tier 2;
+  Safari tier 3 (`safaridriver --mcp`, isolated sessions). Lightpanda 1.0 is a good
+  read-only worker (no rendering → no screenshots). Cloudflare Kitesurf for
+  stateless cloud reads.
+- **Agent traffic:** Cloudflare blocks the "Agent" category on ad-supported sites
+  by default since 15 Sep 2026. Extension mode acts as the user in their own
+  browser; VPS/cloud modes must identify themselves (Web Bot Auth) and hand
+  CAPTCHAs to the user.
+- **Business:** agentic browsing is becoming a free add-on; standalone "AI browser
+  for $20/mo" is weakening. Most defensible: an open, model-neutral body + MCP;
+  paid value later in sync, schedules, Teams (shared page notes, Cards, audit).
 
 ---
 

@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Klippy",
+  "version": "0.0.1",
+  "description": "On-page AI assistant body: ghost cursor, highlights, deterministic page map + diff, safety gates. Driven over MCP.",
+  "minimum_chrome_version": "120",
+  "permissions": ["debugger", "tabs", "scripting", "storage", "alarms"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    { "matches": ["<all_urls>"], "js": ["content.js"], "run_at": "document_idle", "all_frames": false }
+  ],
+  "options_page": "options.html",
+  "action": { "default_title": "Klippy" }
+}
