@@ -1,0 +1,27 @@
+{
+  "name": "klippy",
+  "version": "0.0.1",
+  "private": true,
+  "description": "On-page AI assistant body for Chrome: ghost cursor, highlights, deterministic page map + diff, safety gates, MCP bridge",
+  "license": "UNLICENSED",
+  "type": "module",
+  "bin": {
+    "klippy-mcp": "dist/bridge/klippy-mcp.js"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/build.mjs && playwright test",
+    "bridge": "node dist/bridge/klippy-mcp.js"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "esbuild": "^0.28.2",
+    "playwright": "1.56.0",
+    "typescript": "^6.0.3",
+    "ws": "^8.21.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
